@@ -650,24 +650,24 @@ pub fn blockingMode() bool {
     };
 }
 
-pub fn upgradeWebsocket(comptime H: type, req: *Request, res: *Response, ctx: anytype) !bool {
-    const upgrade = req.header("upgrade") orelse return false;
+pub fn upgradeWebsocket(comptime H: type, req: *Request, res: *Response, ctx: anytype) !?*H {
+    const upgrade = req.header("upgrade") orelse return null;
     if (std.ascii.eqlIgnoreCase(upgrade, "websocket") == false) {
-        return false;
+        return null;
     }
 
-    const version = req.header("sec-websocket-version") orelse return false;
+    const version = req.header("sec-websocket-version") orelse return null;
     if (std.ascii.eqlIgnoreCase(version, "13") == false) {
-        return false;
+        return null;
     }
 
     // firefox will send multiple values for this header
-    const connection = req.header("connection") orelse return false;
+    const connection = req.header("connection") orelse return null;
     if (std.ascii.indexOfIgnoreCase(connection, "upgrade") == null) {
-        return false;
+        return null;
     }
 
-    const key = req.header("sec-websocket-key") orelse return false;
+    const key = req.header("sec-websocket-key") orelse return null;
 
     const http_conn = res.conn;
     const ws_worker: *websocket.server.Worker(H) = @ptrCast(@alignCast(http_conn.ws_worker));
@@ -698,7 +698,7 @@ pub fn upgradeWebsocket(comptime H: type, req: *Request, res: *Response, ctx: an
     try ws_worker.setupConnection(hc, agreed_compression);
     res.written = true;
     http_conn.handover = .{ .websocket = hc };
-    return true;
+    return &hc.handler.?;
 }
 
 // std.heap.StackFallbackAllocator is very specific. It's really _stack_ as it
